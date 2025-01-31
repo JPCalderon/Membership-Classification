@@ -31,16 +31,12 @@ def custom_axes(a):
 tooltip_css = """
     <style>
     .tooltip-container {
-        # display: flex;
-        # align-items: center;
-        # font-size: 14px;  /* ⬅️ Ajusta el tamaño del texto al de los sliders */
-        # font-weight: normal;
-        # margin-bottom: 5px;
         position: relative;
         display: flex;
         align-items: center;  /* Alinear verticalmente */
         gap: 5px; /* Espacio entre icono y texto */
         font-size: 14px;  /* Tamaño del texto */
+        margin-bottom: -100px; /* Reduce espacio entre el label y el slider */
     }
     .tooltip {
         position: relative;
@@ -69,7 +65,7 @@ tooltip_css = """
         z-index: 1000;
         opacity: 0;
         transition: opacity 0.3s;
-        margin: 5px 10px 5px 10px; /* Margen en todas las direcciones */
+        margin: 10px 20px 10px 20px; /* Margen en todas las direcciones */
         font-size: 14px;
     }
     .tooltip:hover .tooltiptext {
@@ -78,40 +74,6 @@ tooltip_css = """
     }
     </style>
 """
-# tooltip_css = """
-# <style>
-# /* Tooltip personalizado */
-# .tooltip-container {
-#     position: relative;
-#     display: inline-block;
-#     cursor: pointer;
-# }
-
-# .tooltip-container .tooltip-text {
-#     visibility: hidden;
-#     width: 220px; /* Ancho del tooltip */
-#     background-color: #31333F; /* Mismo color que el sidebar de Streamlit */
-#     color: white;
-#     text-align: center;
-#     border-radius: 5px;
-#     padding: 10px;
-#     border: 2px solid #666; /* Borde para resaltar */
-#     position: absolute;
-#     z-index: 1;
-#     left: 50%; /* Centrar horizontalmente */
-#     transform: translateX(-50%);
-#     top: -40px; /* Ajustar altura */
-#     margin: 5px 10px 5px 10px; /* Margen en todas las direcciones */
-#     font-size: 14px; /* Tamaño de letra */
-# }
-
-# /* Mostrar tooltip al pasar el mouse */
-# .tooltip-container:hover .tooltip-text {
-#     visibility: visible;
-#     opacity: 1;
-# }
-# </style>
-# """
 
 # Configurar la página
 st.set_page_config(page_title="Galaxy Cluster Analysis", layout="wide")
@@ -128,14 +90,14 @@ model_type_options = ['balanced_random_forest', 'support_vector_machine', 'xgboo
 dim_reduction_options = ['pca', 'umap', 'umap_supervised', 'None']
 
 i = st.sidebar.selectbox("Select Features", i_options, index=0)
-#dim_reduction = st.sidebar.selectbox("Select Dimensionality Reduction", dim_reduction_options)
+dim_reduction = st.sidebar.selectbox("Select Dimensionality Reduction", dim_reduction_options)
 model_type = st.sidebar.selectbox("Select Model Type", model_type_options)
 
-# Condición para fijar dim_reduction en None si "all" está seleccionado
-if model_type == "assembled":
-    dim_reduction = "None"  # Fijar en None
-else:
-    dim_reduction = st.sidebar.selectbox("Select Dimensionality Reduction", dim_reduction_options)
+# # Condición para fijar dim_reduction en None si "all" está seleccionado
+# if model_type == "assembled":
+#     dim_reduction = "None"  # Fijar en None
+# else:
+#     dim_reduction = st.sidebar.selectbox("Select Dimensionality Reduction", dim_reduction_options)
 
 st.sidebar.markdown("---")
 
@@ -145,14 +107,31 @@ st.sidebar.markdown("""
     <div class="tooltip-container">
         <span>Threshold for flag_member2</span>
         <div class="tooltip"> ℹ️
-            <span class="tooltiptext">Este valor define el umbral de clasificación para flag_member2. Ajusta según necesidad.</span>
+            <span class="tooltiptext">
+                The definition of <b>flag_member2</b> is related to <b>prob1</b>. For a given value of <b>prob1 = X</b>, <b>flag_member2</b> is calculated as follows:<br><br>
+                <div style="text-align: center;">
+                    <table class="tooltip-table" style="margin: auto;">
+                        <tr>
+                            <th>Condition</th>
+                            <th>flag_member2</th>
+                        </tr>
+                        <tr>
+                            <td><b>prob1 > X</b></td>
+                            <td style="color:lightcoral;"><b>1 (Member)</b></td>
+                        </tr>
+                        <tr>
+                            <td><b>prob1 < X</b></td>
+                            <td style="color:lightblue;"><b>0 (Outlier)</b></td>
+                        </tr>
+                    </table>
+                </div>
+            </span>
         </div>
     </div>
 """, unsafe_allow_html=True)
 flag_member2_th = st.sidebar.slider("", min_value=0.1, max_value=1.0, value=0.5, step=0.05)
-
 odds_th = st.sidebar.slider("Odds", min_value=0.1, max_value=1.0, value=0.9, step=0.05)
-R_FACTOR = st.sidebar.slider("R200 factor", min_value=0.1, max_value=10.0, value=5.0, step=0.1)
+R_FACTOR = st.sidebar.slider("R200 factor", min_value=0.1, max_value=10.0, value=14.0, step=0.1)
 
 st.sidebar.markdown("""
     <div class="tooltip-container">
@@ -174,13 +153,15 @@ def load_static_data(filename):
     """Carga datos estáticos solo una vez (cacheados)."""
     return pd.read_csv(filename)
 
+# Cargar el archivo estático (cacheado)
+df_output_parameters = load_static_data(data_dir + 'results/df_output_parameters.csv') 
+
+@st.cache_data
 def load_dynamic_data(i, dim_reduction, model_type):
     """Carga datos dinámicos basados en la selección del usuario."""
     filename = data_dir + f'results/ZML_{i}-{dim_reduction}-{model_type}.csv'
     return pd.read_csv(filename)
 
-# Cargar el archivo estático (cacheado)
-df_output_parameters = load_static_data(data_dir + 'results/df_output_parameters.csv')  
 # Cargar el archivo dinámico
 r = load_dynamic_data(i, dim_reduction, model_type)
 
@@ -195,26 +176,23 @@ col1, col2, col3 = st.columns(3)
 with col1:
     st.write("🖼️ Metrics evaluation (PNG Image)")
     figure_path = data_dir + f"figures/ROC_{i}-{dim_reduction}-{model_type}.png"
-    if os.path.exists(figure_path):
-        st.image(figure_path, caption="Example Image", use_container_width=True)  
+    if dim_reduction == 'None':
+        st.warning("⚠️ No dimensionality reduction applied. No figure available.")
+    elif not os.path.exists(figure_path):
+        st.warning(f"⚠️ The figure for {dim_reduction} - {model_type} is not found.")
     else:
-        #st.empty()  # Deja un espacio vacío en la interfaz
-        if dim_reduction == 'None':
-            st.warning("⚠️ If dim_reduction is None, the figure is not displayed.")
-        else:
-            st.warning("⚠️ The figure is not found.")
+        st.image(figure_path, caption=f"Figure for {dim_reduction} - {model_type}", use_container_width=True)
+
 # 📌 Gráfico en Columna 2
 with col2:
     st.write("🖼️ Dimnesionality reduction (PNG Image)")
     figure_path = data_dir + f"figures/DIM_{i}-{dim_reduction}-{model_type}.png"
-    if os.path.exists(figure_path):
-        st.image(figure_path, caption="Example Image", use_container_width=True)  
+    if dim_reduction == 'None':
+        st.warning("⚠️ No dimensionality reduction applied. No figure available.")
+    elif not os.path.exists(figure_path):
+        st.warning(f"⚠️ The figure for {dim_reduction} - {model_type} is not found.")
     else:
-        #st.empty()  # Deja un espacio vacío en la interfaz
-        if dim_reduction == 'None':
-            st.warning("⚠️ If dim_reduction is None, the figure is not displayed.")
-        else:
-            st.warning("⚠️ The figure is not found.")
+        st.image(figure_path, caption=f"Figure for {dim_reduction} - {model_type}", use_container_width=True)
 
 # 📌 Gráfico interactivo en Columna 3 (Custom Graph)
 with col3:
@@ -232,7 +210,7 @@ with col3:
     fig3, (ax0, ax1) = plt.subplots(ncols=2, nrows=1, figsize=(10, 4))
 
     x = 'radius_Mpc'
-    y = 'zml' # y_variable  # Variable seleccionada desde el sidebar
+    y = 'zml' 
 
     # 📌 PLOT 1: Photometric Membership
     df_plot = rr.query("((flag_member == 0) & (odds > @odds_th))").dropna(subset=[x, y])
@@ -253,6 +231,8 @@ with col3:
 
     df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("(flag_member2 == 1)").dropna(subset=[x, y])
     ax1.scatter(x, y, data=df_plot, s=size * 2.2, alpha=0.7, edgecolors='white', color='blue', marker='.', zorder=1, label=f'flag_member2 == 1 ({len(df_plot)})')
+    xlim = ax1.get_xlim(); ylim = ax1.get_ylim()
+    ax0.set_xlim(xlim); ax0.set_ylim(ylim); 
 
     ax1.axvline(x=5.204, color='black', linestyle='--', zorder=1)
     ax1.axhline(y=0.018, color='black', linestyle='--', zorder=1)
@@ -282,6 +262,7 @@ with col4:
 
     x = 'r_auto'; y = 'g_auto-r_auto'
     df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 > @prob1_th")
+    x_min = rr.query("label == 'candidates'").r_auto.min(); x_max = rr.query("label == 'candidates'").r_auto.max()
     scatter2 = ax0.scatter ( x, y, data = df_plot, s = size*1.2, c=df_plot.prob1, edgecolors = 'white', alpha = 0.9, 
                         cmap=plt.get_cmap('jet', 11), label = 'candidates (%i)' % (len(df_plot)), vmin=0, vmax=1, zorder = 1 )   
     xlim = ax0.get_xlim(); ylim = ax0.get_ylim()
@@ -313,7 +294,7 @@ with col4:
 
     for a in [ ax0 ]:
         handles, labels = a.get_legend_handles_labels()
-        custom_axes(a); a.set_ylim (-1, 2);
+        custom_axes(a); a.set_ylim (-1, 2); a.set_xlim(x_min, x_max)
         a.invert_xaxis(); a.set_xlabel ( "r [mag]" ); a.set_ylabel ( "(g-r) [mag]" )
         for item in ([a.title, a.xaxis.label, a.yaxis.label] + a.get_xticklabels() + a.get_yticklabels()): item.set_fontsize(20)
         lgd = a.legend ( handles, labels, fontsize = 10, framealpha = 1, loc = 'lower right', ncol = 1, borderaxespad = 1. )  
@@ -331,6 +312,8 @@ with col5:
 
     x = 'r_auto'; y = 'FLUX_RADIUS_50'
     df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 > @prob1_th")
+    x_min = rr.query("label == 'candidates'").r_auto.min(); x_max = rr.query("label == 'candidates'").r_auto.max()
+    y_min = rr.query("label == 'candidates'").FLUX_RADIUS_50.min(); y_max = rr.query("label == 'candidates'").FLUX_RADIUS_50.max()
     scatter2 = ax0.scatter ( x, y, data = df_plot, s = size*1.2, c=df_plot.prob1, edgecolors = 'white', alpha = 0.9, 
                             cmap=plt.get_cmap('jet', 11), label = 'candidates (%i)' % (len(df_plot)), vmin=0, vmax=1, zorder = 1 )   
     xlim = ax0.get_xlim(); ylim = ax0.get_ylim()
@@ -362,8 +345,8 @@ with col5:
 
     for a in [ ax0 ]:
         handles, labels = a.get_legend_handles_labels()
-        custom_axes ( a )
-        a.set_xlim (xlim); a.invert_xaxis(); a.set_yscale('log')
+        custom_axes ( a ); a.invert_xaxis(); a.set_yscale('log')
+        a.set_yscale('log'); a.set_ylim(y_min, y_max); a.set_xlim(x_min, x_max); a.invert_xaxis()
         a.set_xlabel("r [mag]"); a.set_ylabel("R$_{eff}$ [kpc]")
         for item in ([a.title, a.xaxis.label, a.yaxis.label] + a.get_xticklabels() + a.get_yticklabels()): item.set_fontsize(20)
         a.legend ( handles, labels, fontsize = 10, framealpha = 1, loc = 'lower right', ncol = 1, borderaxespad = 1. )  
@@ -431,13 +414,32 @@ st.markdown("---")
 
 st.title("📊 Parameters")
 filtered_df = df_output_parameters[
-    (df_output_parameters["i"] == i) &
-    (df_output_parameters["dim_reduction"].isin(dim_reduction_options)) &
+    (df_output_parameters["i"] == i) & 
+    (df_output_parameters["dim_reduction"].isin(dim_reduction_options)) & 
     (df_output_parameters["model_type"].isin(model_type_options))
-]
+    ]
 
-st.dataframe(
-    filtered_df.reset_index(drop=True).head(10), 
-    height=500,  # Altura del DataFrame
-    use_container_width=True  # Para ocupar todo el ancho disponible
-)
+st.dataframe(filtered_df.reset_index(drop=True).head(10), height=600, use_container_width=True)
+
+st.markdown("---")
+
+st.title("📊 Notes")
+
+
+geom = [ 'A', 'B', 'THETA', 'ELLIPTICITY', 'ELONGATION', 'PETRO_RADIUS', 'FLUX_RADIUS_50', 'FLUX_RADIUS_90', 'MU_MAX_g', 'MU_MAX_r', 'BACKGROUND_g', 'BACKGROUND_r', 's2n_g_auto', 's2n_r_auto' ]
+ngeom = [ 'D_CENTER/R200_deg', '(A/B)','(FLUX_RADIUS_50/PETRO_RADIUS)', '(FLUX_RADIUS_90/PETRO_RADIUS)', 
+           '(FLUX_RADIUS_50/PETRO_RADIUS)*(A/B)', 'Densidad_vecinos', 'r_auto/area', 'Area_Voronoi', 'Area_Voronoi_norm', 'Diferencia_angular' ]
+
+bands = [ 'J0378_auto', 'J0395_auto', 'J0410_auto', 'J0430_auto', 'J0515_auto', 'J0660_auto', 'J0861_auto', 'g_auto', 'i_auto', 'r_auto', 'u_auto', 'z_auto' ]
+bands_e = [ 'e_J0378_auto', 'e_J0395_auto', 'e_J0410_auto', 'e_J0430_auto', 'e_J0515_auto', 'e_J0660_auto', 'e_J0861_auto', 'e_g_auto', 'e_i_auto', 'e_r_auto', 'e_u_auto', 'e_z_auto' ]
+bands_PS = [ 'J0378_PStotal', 'J0395_PStotal', 'J0410_PStotal', 'J0430_PStotal', 'J0515_PStotal', 'J0660_PStotal', 'J0861_PStotal', 'g_PStotal', 'i_PStotal', 'r_PStotal', 'u_PStotal', 'z_PStotal' ] 
+bands_PS_e = [ 'e_J0378_PStotal', 'e_J0395_PStotal', 'e_J0410_PStotal', 'e_J0430_PStotal', 'e_J0515_PStotal', 'e_J0660_PStotal', 'e_J0861_PStotal', 'e_g_PStotal', 'e_i_PStotal', 'e_r_PStotal', 'e_u_PStotal', 'e_z_PStotal' ]
+band_iso = [ 'r_iso', 'r_petro', 'r_aper_3', 'r_aper_6' ]
+
+features = {}
+
+features[1] = bands 
+features[2] = ngeom 
+features[3] = bands + geom 
+features[4] = bands + ngeom 
+features[5] = bands + ngeom + geom + bands_e + bands_PS + bands_PS_e + band_iso
