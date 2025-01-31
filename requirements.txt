@@ -2,6 +2,6 @@ streamlit
 numpy
 matplotlib
 scikit-learn
-skymap
+ligo.skymap
 pandas
 astropy

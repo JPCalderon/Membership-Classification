@@ -11,6 +11,8 @@ import ligo.skymap.plot
 
 import os
 
+data_dir = 'MKW4/'
+
 def custom_axes(a):
     a.minorticks_on()
     a.yaxis.set_ticks_position ( 'both' )
@@ -24,10 +26,6 @@ def custom_axes(a):
     a.grid ( which = 'major', color = 'black', linestyle = '--', linewidth = '1.0', alpha = 0.2, zorder = -1 )
     a.grid ( which = 'minor', color = 'gray', linestyle = '-', linewidth = '1.0', alpha = 0.1, zorder = -1 )
     plt.setp ( a.spines.values(), linewidth = 1.5 )
-
-import streamlit as st
-
-
 
 # 🔹 CSS para tooltips flotantes
 tooltip_css = """
@@ -125,10 +123,11 @@ st.markdown(tooltip_css, unsafe_allow_html=True)
 st.sidebar.title("Control Panel")
 
 # Selección de variables
+i_options = [1, 2, 3, 4, 5]
 model_type_options = ['balanced_random_forest', 'support_vector_machine', 'xgboost', 'lightgbm', 'mlpclassifier', 'assembled']
 dim_reduction_options = ['pca', 'umap', 'umap_supervised', 'None']
 
-i = st.sidebar.selectbox("Select Features", [1, 2, 3, 4, 5], index=0)
+i = st.sidebar.selectbox("Select Features", i_options, index=0)
 #dim_reduction = st.sidebar.selectbox("Select Dimensionality Reduction", dim_reduction_options)
 model_type = st.sidebar.selectbox("Select Model Type", model_type_options)
 
@@ -177,11 +176,11 @@ def load_static_data(filename):
 
 def load_dynamic_data(i, dim_reduction, model_type):
     """Carga datos dinámicos basados en la selección del usuario."""
-    filename = f'results/ZML_{i}-{dim_reduction}-{model_type}.csv'
+    filename = data_dir + f'results/ZML_{i}-{dim_reduction}-{model_type}.csv'
     return pd.read_csv(filename)
 
 # Cargar el archivo estático (cacheado)
-df_output_parameters = load_static_data('results/df_output_parameters.csv')  
+df_output_parameters = load_static_data(data_dir + 'results/df_output_parameters.csv')  
 # Cargar el archivo dinámico
 r = load_dynamic_data(i, dim_reduction, model_type)
 
@@ -195,7 +194,7 @@ col1, col2, col3 = st.columns(3)
 # 📌 Gráfico en Columna 1
 with col1:
     st.write("🖼️ Metrics evaluation (PNG Image)")
-    figure_path = f"figures/ROC_{i}-{dim_reduction}-{model_type}.png"
+    figure_path = data_dir + f"figures/ROC_{i}-{dim_reduction}-{model_type}.png"
     if os.path.exists(figure_path):
         st.image(figure_path, caption="Example Image", use_container_width=True)  
     else:
@@ -207,7 +206,7 @@ with col1:
 # 📌 Gráfico en Columna 2
 with col2:
     st.write("🖼️ Dimnesionality reduction (PNG Image)")
-    figure_path = f"figures/DIM_{i}-{dim_reduction}-{model_type}.png"
+    figure_path = data_dir + f"figures/DIM_{i}-{dim_reduction}-{model_type}.png"
     if os.path.exists(figure_path):
         st.image(figure_path, caption="Example Image", use_container_width=True)  
     else:
