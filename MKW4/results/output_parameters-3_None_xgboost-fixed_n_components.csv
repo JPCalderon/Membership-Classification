@@ -1,0 +1,2 @@
+i,dim_reduction,model_type,best_score,best_params
+3,None,xgboost,0.6065190345143906,"{""model_type__subsample"": 0.5, ""model_type__reg_lambda"": 10, ""model_type__n_estimators"": 500, ""model_type__max_depth"": 6, ""model_type__learning_rate"": 0.3, ""model_type__colsample_bytree"": 0.5}"

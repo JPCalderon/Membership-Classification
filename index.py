@@ -154,7 +154,7 @@ def load_static_data(filename):
     return pd.read_csv(filename)
 
 # Cargar el archivo estático (cacheado)
-df_output_parameters = load_static_data(data_dir + 'results/df_output_parameters.csv') 
+#df_output_parameters = load_static_data(data_dir + 'results/df_output_parameters.csv') 
 
 @st.cache_data
 def load_dynamic_data(i, dim_reduction, model_type):
@@ -176,9 +176,10 @@ col1, col2, col3 = st.columns(3)
 with col1:
     st.write("🖼️ Metrics evaluation (PNG Image)")
     figure_path = data_dir + f"figures/ROC_{i}-{dim_reduction}-{model_type}.png"
-    if dim_reduction == 'None':
-        st.warning("⚠️ No dimensionality reduction applied. No figure available.")
-    elif not os.path.exists(figure_path):
+    #if dim_reduction == 'None':
+    #    st.warning("⚠️ No dimensionality reduction applied. No figure available.")
+    #el
+    if not os.path.exists(figure_path):
         st.warning(f"⚠️ The figure for {dim_reduction} - {model_type} is not found.")
     else:
         st.image(figure_path, caption=f"Figure for {dim_reduction} - {model_type}", use_container_width=True)
@@ -208,45 +209,40 @@ with col3:
     # ---- PLOTEO ----
     size = 80
     fig3, (ax0, ax1) = plt.subplots(ncols=2, nrows=1, figsize=(10, 4))
-
-    x = 'radius_Mpc'
-    y = 'zml' 
-
+    x = 'radius_Mpc'; y = 'zml' 
     # 📌 PLOT 1: Photometric Membership
-    df_plot = rr.query("((flag_member == 0) & (odds > @odds_th))").dropna(subset=[x, y])
+    df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("((flag_member == 0) & (odds > @odds_th))").dropna(subset=[x, y])
     ax0.scatter(x, y, data=df_plot, s=size * 2.2, alpha=0.5, edgecolors='white', color='red', marker='.', zorder=2, label=f'flag_member == 0 ({len(df_plot)})')
 
-    df_plot = rr.query("((flag_member == 1) & (odds > @odds_th))").dropna(subset=[x, y])
+    df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("((flag_member == 1) & (odds > @odds_th))").dropna(subset=[x, y])
     ax0.scatter(x, y, data=df_plot, s=size * 2.2, alpha=0.7, edgecolors='white', color='blue', marker='.', zorder=1, label=f'flag_member == 1 ({len(df_plot)})')
 
     ax0.set_title(f"Photometric redshift x distance (odds > {odds_th})", fontsize=10)
     ax0.set_xlabel('radius_Mpc')
-    ax0.set_ylabel(y)
-    custom_axes(ax0)
+    ax0.set_ylabel(y); custom_axes(ax0)
     ax0.legend()
 
     # 📌 PLOT 2: Flag Membership
     df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("(flag_member2 == 0)").dropna(subset=[x, y])
+    x_min = rr.radius_Mpc.min(); x_max = rr.radius_Mpc.max(); 
+    y_min = rr.dropna(subset=[x, y]).zml.min(); y_max = rr.dropna(subset=[x, y]).zml.max()
     ax1.scatter(x, y, data=df_plot, s=size * 2.2, alpha=0.5, edgecolors='white', color='red', marker='.', zorder=2, label=f'flag_member2 == 0 ({len(df_plot)})')
 
     df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("(flag_member2 == 1)").dropna(subset=[x, y])
     ax1.scatter(x, y, data=df_plot, s=size * 2.2, alpha=0.7, edgecolors='white', color='blue', marker='.', zorder=1, label=f'flag_member2 == 1 ({len(df_plot)})')
-    xlim = ax1.get_xlim(); ylim = ax1.get_ylim()
-    ax0.set_xlim(xlim); ax0.set_ylim(ylim); 
 
+    ax0.set_xlim(x_min,x_max); ax1.set_xlim(x_min,x_max)
+    ax0.set_ylim(0,y_max); ax1.set_ylim(0,y_max)
     ax1.axvline(x=5.204, color='black', linestyle='--', zorder=1)
     ax1.axhline(y=0.018, color='black', linestyle='--', zorder=1)
     ax1.axhline(y=0.036, color='black', linestyle='--', zorder=1)
 
     ax1.set_xlabel('radius_Mpc')
-    ax1.set_ylabel(y)
-    custom_axes(ax1)
+    ax1.set_ylabel(y); custom_axes(ax1)
     ax1.legend(loc='best', markerscale=1)
 
     fig3.suptitle(f"Evaluación del Modelo: i = {i}, dim_reduction = {dim_reduction}, model_type = {model_type}", fontsize=10, y=0.97)
     fig3.tight_layout()
-
-    # Mostrar en Streamlit
     st.pyplot(fig3)
 
 # Crear segunda fila de gráficos
@@ -264,18 +260,22 @@ with col4:
     df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 > @prob1_th")
     x_min = rr.query("label == 'candidates'").r_auto.min(); x_max = rr.query("label == 'candidates'").r_auto.max()
     scatter2 = ax0.scatter ( x, y, data = df_plot, s = size*1.2, c=df_plot.prob1, edgecolors = 'white', alpha = 0.9, 
-                        cmap=plt.get_cmap('jet', 11), label = 'candidates (%i)' % (len(df_plot)), vmin=0, vmax=1, zorder = 1 )   
+                        cmap=plt.get_cmap('jet', 11), label = 'candidates (%i)' % (len(df_plot)), vmin=0, vmax=1, zorder = 2 )   
     xlim = ax0.get_xlim(); ylim = ax0.get_ylim()
 
+    df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 < @prob1_th")
+    ax0.scatter ( x, y, data = df_plot, s = size*1.2, color='gray', edgecolors = 'white', alpha = 0.3,
+                 label = 'candidates (%i)' % (len(df_plot)), vmin=0, vmax=1, zorder = 1 )   
+    
     if show_scatter_background:
         df_plot = rr.query("label == 'background'")
         ax0.scatter ( x, y, data = df_plot, s = size*3.2, alpha = 0.9, edgecolors = 'black', color = 'purple', marker = '.', 
-                    linewidth = 1.2, label = 'background (%i)' % (len(df_plot)), zorder = 2 )  
+                    linewidth = 1.2, label = 'background (%i)' % (len(df_plot)), zorder = 3 )  
 
     if show_scatter_members:
         df_plot = rr.query("label == 'members'")
         ax0.scatter ( x, y, data = df_plot, s = size*3.2, alpha = 0.9, edgecolors = 'black', color = 'red', marker = '.', 
-                    linewidth = 1.2, label = 'members (%i)' % (len(df_plot)), zorder = 3 )  
+                    linewidth = 1.2, label = 'members (%i)' % (len(df_plot)), zorder = 4 )  
 
     # Ajustar las posiciones de los gráficos para dejar espacio para la barra de color
     fig4.tight_layout(pad=2.0)
@@ -368,7 +368,7 @@ with col6:
     x = 'ra'; y = 'dec'
     df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 > @prob1_th").dropna(subset=['prob1'])
     scatter2 = ax0.scatter ( x, y, data = df_plot, s = size*1.5, c=df_plot.prob1, edgecolors = 'white', alpha = 0.9,  cmap=plt.get_cmap('jet', 11),
-                linewidth = 0.4, transform = ax0.get_transform('world'), label = 'candidates (%s)' % (len(df_plot)), zorder = 1 )   
+                linewidth = 0.4, transform = ax0.get_transform('world'), label = 'candidates (%s)' % (len(df_plot)),  vmin=0, vmax=1, zorder = 1 )   
     xlim = ax0.get_xlim(); ylim = ax0.get_ylim()
 
     for R_FACTOR in [ 1, 5 ]:
@@ -413,13 +413,13 @@ with col6:
 st.markdown("---")
 
 st.title("📊 Parameters")
-filtered_df = df_output_parameters[
-    (df_output_parameters["i"] == i) & 
-    (df_output_parameters["dim_reduction"].isin(dim_reduction_options)) & 
-    (df_output_parameters["model_type"].isin(model_type_options))
-    ]
+# filtered_df = df_output_parameters[
+#     (df_output_parameters["i"] == i) & 
+#     (df_output_parameters["dim_reduction"].isin(dim_reduction_options)) & 
+#     (df_output_parameters["model_type"].isin(model_type_options))
+#     ]
 
-st.dataframe(filtered_df.reset_index(drop=True).head(10), height=600, use_container_width=True)
+# st.dataframe(filtered_df.reset_index(drop=True).head(10), height=600, use_container_width=True)
 
 st.markdown("---")
 

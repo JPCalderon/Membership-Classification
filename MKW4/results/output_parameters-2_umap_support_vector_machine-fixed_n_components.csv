@@ -1,0 +1,2 @@
+i,dim_reduction,model_type,best_score,best_params
+2,umap,support_vector_machine,0.7779137288605175,"{""model_type__kernel"": ""rbf"", ""model_type__gamma"": ""scale"", ""model_type__C"": 0.1, ""dim_reduction__spread"": 1.7, ""dim_reduction__n_neighbors"": 100, ""dim_reduction__n_components"": 10, ""dim_reduction__min_dist"": 0.1, ""dim_reduction__metric"": ""euclidean""}"

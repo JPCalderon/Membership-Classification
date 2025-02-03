@@ -1,0 +1,2 @@
+i,dim_reduction,model_type,best_score,best_params
+4,umap,xgboost,0.7318117188395826,"{""model_type__subsample"": 0.8, ""model_type__reg_lambda"": 10, ""model_type__n_estimators"": 50, ""model_type__max_depth"": 3, ""model_type__learning_rate"": 0.1, ""model_type__colsample_bytree"": 1.0, ""dim_reduction__spread"": 0.9, ""dim_reduction__n_neighbors"": 100, ""dim_reduction__n_components"": 22, ""dim_reduction__min_dist"": 0.5, ""dim_reduction__metric"": ""manhattan""}"
