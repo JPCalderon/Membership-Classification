@@ -1,0 +1,2 @@
+i,dim_reduction,model_type,best_score,best_params
+3,pca,lightgbm,0.6392583992661391,"{""model_type__subsample"": 1.0, ""model_type__reg_lambda"": 0.1, ""model_type__reg_alpha"": 1, ""model_type__num_leaves"": 63, ""model_type__n_estimators"": 200, ""model_type__min_data_in_leaf"": 5, ""model_type__max_depth"": 10, ""model_type__learning_rate"": 0.005, ""model_type__is_unbalance"": true, ""model_type__colsample_bytree"": 0.6, ""dim_reduction__n_components"": 26}"

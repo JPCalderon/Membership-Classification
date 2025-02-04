@@ -1,0 +1,2 @@
+i,dim_reduction,model_type,best_score,best_params
+1,umap_supervised,xgboost,0.599812521499828,"{""model_type__subsample"": 1.0, ""model_type__reg_lambda"": 10, ""model_type__n_estimators"": 100, ""model_type__max_depth"": 6, ""model_type__learning_rate"": 0.01, ""model_type__colsample_bytree"": 1.0, ""dim_reduction__spread"": 0.9, ""dim_reduction__n_neighbors"": 70, ""dim_reduction__n_components"": 12, ""dim_reduction__min_dist"": 0.3, ""dim_reduction__metric"": ""cosine""}"

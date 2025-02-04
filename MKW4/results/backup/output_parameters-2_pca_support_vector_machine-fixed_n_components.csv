@@ -1,0 +1,2 @@
+i,dim_reduction,model_type,best_score,best_params
+2,pca,support_vector_machine,0.7780928451834103,"{""model_type__kernel"": ""linear"", ""model_type__gamma"": 0.5, ""model_type__C"": 1, ""dim_reduction__n_components"": 10}"

@@ -1,0 +1,2 @@
+i,dim_reduction,model_type,best_score,best_params
+3,umap_supervised,mlpclassifier,0.5995023506478614,"{""model_type__solver"": ""adam"", ""model_type__max_iter"": 200, ""model_type__learning_rate"": ""constant"", ""model_type__hidden_layer_sizes"": [200, 100], ""model_type__alpha"": 0.01, ""model_type__activation"": ""logistic"", ""dim_reduction__spread"": 2.0, ""dim_reduction__n_neighbors"": 100, ""dim_reduction__n_components"": 26, ""dim_reduction__min_dist"": 0.9, ""dim_reduction__metric"": ""euclidean""}"

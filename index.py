@@ -102,46 +102,13 @@ model_type = st.sidebar.selectbox("Select Model Type", model_type_options)
 st.sidebar.markdown("---")
 
 # Barras deslizantes para ajustar parámetros
-# 🔹 Tooltip para "Threshold for flag_member2"
-st.sidebar.markdown("""
-    <div class="tooltip-container">
-        <span>Threshold for flag_member2</span>
-        <div class="tooltip"> ℹ️
-            <span class="tooltiptext">
-                The definition of <b>flag_member2</b> is related to <b>prob1</b>. For a given value of <b>prob1 = X</b>, <b>flag_member2</b> is calculated as follows:<br><br>
-                <div style="text-align: center;">
-                    <table class="tooltip-table" style="margin: auto;">
-                        <tr>
-                            <th>Condition</th>
-                            <th>flag_member2</th>
-                        </tr>
-                        <tr>
-                            <td><b>prob1 > X</b></td>
-                            <td style="color:lightcoral;"><b>1 (Member)</b></td>
-                        </tr>
-                        <tr>
-                            <td><b>prob1 < X</b></td>
-                            <td style="color:lightblue;"><b>0 (Outlier)</b></td>
-                        </tr>
-                    </table>
-                </div>
-            </span>
-        </div>
-    </div>
-""", unsafe_allow_html=True)
-flag_member2_th = st.sidebar.slider("", min_value=0.1, max_value=1.0, value=0.5, step=0.05)
+flag_member2_th = st.sidebar.slider("h for flag_member2", min_value=0.1, max_value=1.0, value=0.5, step=0.05)
 odds_th = st.sidebar.slider("Odds", min_value=0.1, max_value=1.0, value=0.9, step=0.05)
 R_FACTOR = st.sidebar.slider("R200 factor", min_value=0.1, max_value=10.0, value=14.0, step=0.1)
 
-st.sidebar.markdown("""
-    <div class="tooltip-container">
-        <span>prob1</span>
-        <div class="tooltip"> ℹ️
-            <span class="tooltiptext">Depending on the selected model, <b>prob1</b> is the probability of each object being a member of the cluster.</span>
-        </div>
-    </div>
-""", unsafe_allow_html=True)
-prob1_th = st.sidebar.slider("", min_value=0.05, max_value=1.0, value=0.5, step=0.05)
+prob1_th = st.sidebar.slider("prob1", min_value=0.05, max_value=1.0, value=0.5, step=0.05)
+
+selected_flag = st.sidebar.radio("Column for comparision", ["flag_member", "flag_member_photz1"])
 
 st.sidebar.markdown("---")
 
@@ -151,16 +118,16 @@ show_scatter_background = st.sidebar.checkbox("background", value=True)
 @st.cache_data
 def load_static_data(filename):
     """Carga datos estáticos solo una vez (cacheados)."""
-    return pd.read_csv(filename)
+    return pd.read_csv(filename).replace(["", None], "None")
 
 # Cargar el archivo estático (cacheado)
-#df_output_parameters = load_static_data(data_dir + 'results/df_output_parameters.csv') 
+output_parameters = load_static_data(data_dir + 'results/output_parameters-fixed_n_components.csv') 
 
 @st.cache_data
 def load_dynamic_data(i, dim_reduction, model_type):
     """Carga datos dinámicos basados en la selección del usuario."""
     filename = data_dir + f'results/ZML_{i}-{dim_reduction}-{model_type}.csv'
-    return pd.read_csv(filename)
+    return pd.read_csv(filename).sort_values(by="prob1", ascending=True)
 
 # Cargar el archivo dinámico
 r = load_dynamic_data(i, dim_reduction, model_type)
@@ -199,7 +166,7 @@ with col2:
 with col3:
     st.write("📊 Comparision")
     # Definir las condiciones y asignar flag_member2
-    conditions = [(r.prob1 > flag_member2_th), (r.prob1 < flag_member2_th)]
+    conditions = [(r.prob1 >= flag_member2_th), (r.prob1 < flag_member2_th)]
     choices = [0, 1]
     r['flag_member2'] = np.select(conditions, choices, default=-1)
 
@@ -211,11 +178,18 @@ with col3:
     fig3, (ax0, ax1) = plt.subplots(ncols=2, nrows=1, figsize=(10, 4))
     x = 'radius_Mpc'; y = 'zml' 
     # 📌 PLOT 1: Photometric Membership
-    df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("((flag_member == 0) & (odds > @odds_th))").dropna(subset=[x, y])
-    ax0.scatter(x, y, data=df_plot, s=size * 2.2, alpha=0.5, edgecolors='white', color='red', marker='.', zorder=2, label=f'flag_member == 0 ({len(df_plot)})')
+    if selected_flag == 'flag_member':
+        QUERY_RED = "((flag_member == 0) & (odds > @odds_th))"
+        QUERY_BLUE = "((flag_member == 1) & (odds > @odds_th))"
+    else:
+        QUERY_RED = "((flag_member_photz1 == 0) & (odds > @odds_th))"
+        QUERY_BLUE = "((flag_member_photz1 == 1) & (odds > @odds_th))"
 
-    df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("((flag_member == 1) & (odds > @odds_th))").dropna(subset=[x, y])
-    ax0.scatter(x, y, data=df_plot, s=size * 2.2, alpha=0.7, edgecolors='white', color='blue', marker='.', zorder=1, label=f'flag_member == 1 ({len(df_plot)})')
+    df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query(QUERY_RED).dropna(subset=[x, y])
+    ax0.scatter(x, y, data=df_plot, s=size * 2.2, alpha=0.5, edgecolors='white', color='red', marker='.', zorder=2, label=f'{selected_flag} == 0 ({len(df_plot)})')
+
+    df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query(QUERY_BLUE).dropna(subset=[x, y])
+    ax0.scatter(x, y, data=df_plot, s=size * 2.2, alpha=0.7, edgecolors='white', color='blue', marker='.', zorder=1, label=f'{selected_flag} == 1 ({len(df_plot)})')
 
     ax0.set_title(f"Photometric redshift x distance (odds > {odds_th})", fontsize=10)
     ax0.set_xlabel('radius_Mpc')
@@ -251,30 +225,31 @@ col4, col5, col6 = st.columns(3)
 # 📌 Gráfico en Columna 4
 with col4:
     st.write("📊 CMD")
+    cmap = plt.get_cmap("jet", 11)  # Alternativas: "viridis", "coolwarm", "pastel1"
 
     fig4 = plt.figure(figsize=(20, 6))  
     gs = GridSpec(1, 2, width_ratios=[1, 1]) 
     ax0 = fig4.add_subplot(gs[0, 0])
 
     x = 'r_auto'; y = 'g_auto-r_auto'
-    df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 > @prob1_th")
+    df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 >= @prob1_th")
     x_min = rr.query("label == 'candidates'").r_auto.min(); x_max = rr.query("label == 'candidates'").r_auto.max()
-    scatter2 = ax0.scatter ( x, y, data = df_plot, s = size*1.2, c=df_plot.prob1, edgecolors = 'white', alpha = 0.9, 
-                        cmap=plt.get_cmap('jet', 11), label = 'candidates (%i)' % (len(df_plot)), vmin=0, vmax=1, zorder = 2 )   
+    scatter2 = ax0.scatter ( x, y, data = df_plot, s = size*0.7, c=df_plot.prob1, edgecolors = 'white', alpha = 0.9, 
+                        cmap=cmap, label = 'prob > %4.2f (%i)' % (prob1_th, len(df_plot)), vmin=0, vmax=1, zorder = 2 )   
     xlim = ax0.get_xlim(); ylim = ax0.get_ylim()
 
     df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 < @prob1_th")
-    ax0.scatter ( x, y, data = df_plot, s = size*1.2, color='gray', edgecolors = 'white', alpha = 0.3,
-                 label = 'candidates (%i)' % (len(df_plot)), vmin=0, vmax=1, zorder = 1 )   
+    ax0.scatter ( x, y, data = df_plot, s = size*0.4, color='gray', edgecolors = 'white', alpha = 0.3,
+                 label = 'prob < %4.2f (%i)' % (prob1_th, len(df_plot)), vmin=0, vmax=1, zorder = 1 )   
     
     if show_scatter_background:
         df_plot = rr.query("label == 'background'")
-        ax0.scatter ( x, y, data = df_plot, s = size*3.2, alpha = 0.9, edgecolors = 'black', color = 'purple', marker = '.', 
+        ax0.scatter ( x, y, data = df_plot, s = size*0.5, alpha = 0.9, edgecolors = 'black', color = 'green', marker = '^', 
                     linewidth = 1.2, label = 'background (%i)' % (len(df_plot)), zorder = 3 )  
 
     if show_scatter_members:
         df_plot = rr.query("label == 'members'")
-        ax0.scatter ( x, y, data = df_plot, s = size*3.2, alpha = 0.9, edgecolors = 'black', color = 'red', marker = '.', 
+        ax0.scatter ( x, y, data = df_plot, s = size*0.5, alpha = 0.9, edgecolors = 'black', color = 'red', marker = 's', 
                     linewidth = 1.2, label = 'members (%i)' % (len(df_plot)), zorder = 4 )  
 
     # Ajustar las posiciones de los gráficos para dejar espacio para la barra de color
@@ -311,21 +286,25 @@ with col5:
     ax0 = fig5.add_subplot(gs[0, 0])
 
     x = 'r_auto'; y = 'FLUX_RADIUS_50'
-    df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 > @prob1_th")
     x_min = rr.query("label == 'candidates'").r_auto.min(); x_max = rr.query("label == 'candidates'").r_auto.max()
     y_min = rr.query("label == 'candidates'").FLUX_RADIUS_50.min(); y_max = rr.query("label == 'candidates'").FLUX_RADIUS_50.max()
-    scatter2 = ax0.scatter ( x, y, data = df_plot, s = size*1.2, c=df_plot.prob1, edgecolors = 'white', alpha = 0.9, 
-                            cmap=plt.get_cmap('jet', 11), label = 'candidates (%i)' % (len(df_plot)), vmin=0, vmax=1, zorder = 1 )   
+    df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 >= @prob1_th")
+    scatter2 = ax0.scatter ( x, y, data = df_plot, s = size*0.7, c=df_plot.prob1, edgecolors = 'white', alpha = 0.9, 
+                            cmap=cmap, label = 'prob > %4.2f (%i)' % (prob1_th, len(df_plot)), vmin=0, vmax=1, zorder = 2 )   
     xlim = ax0.get_xlim(); ylim = ax0.get_ylim()
+    
+    df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 < @prob1_th")
+    ax0.scatter ( x, y, data = df_plot, s = size*0.4, color='gray', edgecolors = 'white', alpha = 0.5,
+                label = 'prob < %4.2f (%i)' % (prob1_th, len(df_plot)), vmin=0, vmax=1, zorder = 1 )   
 
     if show_scatter_background:
         df_plot = rr.query("label == 'background'")
-        ax0.scatter ( x, y, data = df_plot, s = size*3.2, alpha = 0.9, edgecolors = 'black', color = 'purple', marker = '.', 
-                    linewidth = 1.2, label = 'background (%i)' % (len(df_plot)), zorder = 2 )  
+        ax0.scatter ( x, y, data = df_plot, s = size*0.5, alpha = 0.9, edgecolors = 'black', color = 'green', marker = '^', 
+                    linewidth = 1.2, label = 'background (%i)' % (len(df_plot)), zorder = 3 )  
 
     if show_scatter_members:
         df_plot = rr.query("label == 'members'")
-        ax0.scatter ( x, y, data = df_plot, s = size*3.2, alpha = 0.9, edgecolors = 'black', color = 'red', marker = '.', 
+        ax0.scatter ( x, y, data = df_plot, s = size*0.5, alpha = 0.9, edgecolors = 'black', color = 'red', marker = 's', 
                     linewidth = 1.2, label = 'members (%i)' % (len(df_plot)), zorder = 4 )  
 
     # Ajustar las posiciones de los gráficos para dejar espacio para la barra de color
@@ -366,11 +345,15 @@ with col6:
     ax0 = plt.axes ( projection = 'astro zoom', center = center, radius = 9*u.deg )
 
     x = 'ra'; y = 'dec'
-    df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 > @prob1_th").dropna(subset=['prob1'])
-    scatter2 = ax0.scatter ( x, y, data = df_plot, s = size*1.5, c=df_plot.prob1, edgecolors = 'white', alpha = 0.9,  cmap=plt.get_cmap('jet', 11),
-                linewidth = 0.4, transform = ax0.get_transform('world'), label = 'candidates (%s)' % (len(df_plot)),  vmin=0, vmax=1, zorder = 1 )   
+    df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 >= @prob1_th").dropna(subset=['prob1'])
+    scatter2 = ax0.scatter ( x, y, data = df_plot, s = size*1.5, c=df_plot.prob1, edgecolors = 'white', alpha = 0.9,  cmap=cmap,
+                linewidth = 0.4, transform = ax0.get_transform('world'), label = 'prob > %4.2f (%s)' % (prob1_th, len(df_plot)),  vmin=0, vmax=1, zorder = 2 )   
     xlim = ax0.get_xlim(); ylim = ax0.get_ylim()
 
+    df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 < @prob1_th").dropna(subset=['prob1'])
+    ax0.scatter ( x, y, data = df_plot, s = size*0.4, color='gray', edgecolors = 'white', alpha = 0.5,
+                transform = ax0.get_transform('world'), label = 'prob < %4.2f (%i)' % (prob1_th, len(df_plot)), vmin=0, vmax=1, zorder = 1 )   
+    
     for R_FACTOR in [ 1, 5 ]:
         R_200 = SphericalCircle ( (center.ra.deg * u.degree , center.dec.deg * u.degree ), R_FACTOR * R200 * u.degree, 
                                 edgecolor = 'black', facecolor = 'none', linewidth = 3.0, linestyle = '--', 
@@ -378,13 +361,13 @@ with col6:
         ax0.add_patch(R_200) 
 
     if show_scatter_background:
-        df_plot = rr.query("label == 'background'")
-        ax0.scatter ( x, y, data = df_plot, s = size*3.5, alpha = 0.9, edgecolors = 'black', color = 'purple', marker = '.', 
-                    linewidth = 1.2,transform = ax0.get_transform('world'), label = 'background (%i)' % (len(df_plot)), zorder = 2 )  
+        df_plot = rr.query("label == 'background'")#.dropna(subset=['prob1'])
+        ax0.scatter ( x, y, data = df_plot, s = size*0.5, alpha = 0.9, edgecolors = 'black', color = 'green', marker = '^', 
+                    linewidth = 1.2, transform = ax0.get_transform('world'), label = 'background (%i)' % (len(df_plot)), zorder = 3 )  
 
     if show_scatter_members:
-        df_plot = rr.query("label == 'members'")
-        ax0.scatter ( x, y, data = df_plot, s = size*3.5, alpha = 0.9, edgecolors = 'black', color = 'red', marker = '.', 
+        df_plot = rr.query("label == 'members'")#.dropna(subset=['prob1'])
+        ax0.scatter ( x, y, data = df_plot, s = size*0.5, alpha = 0.9, edgecolors = 'black', color = 'red', marker = 's', 
                     linewidth = 1.2, transform = ax0.get_transform('world'), label = 'members (%i)' % (len(df_plot)), zorder = 4 )  
 
     # Ajustar las posiciones de los gráficos para dejar espacio para la barra de color
@@ -413,33 +396,86 @@ with col6:
 st.markdown("---")
 
 st.title("📊 Parameters")
-# filtered_df = df_output_parameters[
-#     (df_output_parameters["i"] == i) & 
-#     (df_output_parameters["dim_reduction"].isin(dim_reduction_options)) & 
-#     (df_output_parameters["model_type"].isin(model_type_options))
-#     ]
 
-# st.dataframe(filtered_df.reset_index(drop=True).head(10), height=600, use_container_width=True)
+# Función para resaltar la fila seleccionada
+def highlight_row(row):
+    return ["background-color: yellow" if (row["i"] == i) and (row["dim_reduction"] == dim_reduction) and (row["model_type"] == model_type) else "" for _ in row]
+
+# Aplicar estilos
+styled_df = output_parameters.style.apply(highlight_row, axis=1)
+
+# Mostrar en Streamlit
+st.dataframe(styled_df, use_container_width=True)
 
 st.markdown("---")
 
 st.title("📊 Notes")
 
+st.markdown("""
+# Parametros y modelos disponibles:
 
+1. Los parametros diponibles estan dispuestos en los siguientes arreglos:
+
+```python
 geom = [ 'A', 'B', 'THETA', 'ELLIPTICITY', 'ELONGATION', 'PETRO_RADIUS', 'FLUX_RADIUS_50', 'FLUX_RADIUS_90', 'MU_MAX_g', 'MU_MAX_r', 'BACKGROUND_g', 'BACKGROUND_r', 's2n_g_auto', 's2n_r_auto' ]
-ngeom = [ 'D_CENTER/R200_deg', '(A/B)','(FLUX_RADIUS_50/PETRO_RADIUS)', '(FLUX_RADIUS_90/PETRO_RADIUS)', 
-           '(FLUX_RADIUS_50/PETRO_RADIUS)*(A/B)', 'Densidad_vecinos', 'r_auto/area', 'Area_Voronoi', 'Area_Voronoi_norm', 'Diferencia_angular' ]
+
+ngeom = [ 'D_CENTER/R200_deg', '(A/B)','(FLUX_RADIUS_50/PETRO_RADIUS)', '(FLUX_RADIUS_90/PETRO_RADIUS)', '(FLUX_RADIUS_50/PETRO_RADIUS)*(A/B)', 'Densidad_vecinos', 'r_auto/area', 'Area_Voronoi', 'Area_Voronoi_norm', 'Diferencia_angular' ]
 
 bands = [ 'J0378_auto', 'J0395_auto', 'J0410_auto', 'J0430_auto', 'J0515_auto', 'J0660_auto', 'J0861_auto', 'g_auto', 'i_auto', 'r_auto', 'u_auto', 'z_auto' ]
+
 bands_e = [ 'e_J0378_auto', 'e_J0395_auto', 'e_J0410_auto', 'e_J0430_auto', 'e_J0515_auto', 'e_J0660_auto', 'e_J0861_auto', 'e_g_auto', 'e_i_auto', 'e_r_auto', 'e_u_auto', 'e_z_auto' ]
+
 bands_PS = [ 'J0378_PStotal', 'J0395_PStotal', 'J0410_PStotal', 'J0430_PStotal', 'J0515_PStotal', 'J0660_PStotal', 'J0861_PStotal', 'g_PStotal', 'i_PStotal', 'r_PStotal', 'u_PStotal', 'z_PStotal' ] 
+
 bands_PS_e = [ 'e_J0378_PStotal', 'e_J0395_PStotal', 'e_J0410_PStotal', 'e_J0430_PStotal', 'e_J0515_PStotal', 'e_J0660_PStotal', 'e_J0861_PStotal', 'e_g_PStotal', 'e_i_PStotal', 'e_r_PStotal', 'e_u_PStotal', 'e_z_PStotal' ]
+
 band_iso = [ 'r_iso', 'r_petro', 'r_aper_3', 'r_aper_6' ]
+```
 
-features = {}
+Se separaron en cinco conjuntos, con `i` entre 1 y 5:
+```python
+1 = bands 
+2 = ngeom 
+3 = bands + geom 
+4 = bands + ngeom 
+5 = bands + ngeom + geom + bands_e + bands_PS + bands_PS_e + band_iso
+```
 
-features[1] = bands 
-features[2] = ngeom 
-features[3] = bands + geom 
-features[4] = bands + ngeom 
-features[5] = bands + ngeom + geom + bands_e + bands_PS + bands_PS_e + band_iso
+2. Reduccion de dimensionalidad:
+            
+    - `pca`
+    - `umap`
+    - `umap_supervised`
+    - `None`
+
+En el caso de `None` hace referencia a que la regresion se hizo sin reduccion de dimensionalidad.
+
+3. Regresion
+            
+    - `balanced_random_forest`
+    - `support_vector_machine`
+    - `xgboost`
+    - `lightgbm`
+    - `mlpclassifier`
+    - `assembled`
+
+Para `assembled` se utilizo una composicion de todos los modelos disponibles, seria una forma de combinar la probabilidad que se predijo en cada modelo. Se ajusto para cada juego de parametros (`1`) y para cada algoritmo en (`2`).
+
+# Figuras disponibles
+
+Las figuras que se muestran son:
+
+- Las curvas ROC y PR.
+
+- Las primeras dos componentes en el caso de que se halla redusido la dimensionalidad del problema.
+
+- Se muestra una comparacion con los ajustes `flag_member` y `flag_member_photz1`. Se permite al usuario modificar el umbral para el cual se define la membresia:
+
+    Dada una cierta probabilidad de ser miembro del cumulo (`prob1`), se define `flag_member2` en funcion de un umbral `th` de la siguiente forma:
+
+    - **Si prob1 ≥ th** → flag_member2 = **1** (miembro del cúmulo)
+    - **Si prob1 < th** → flag_member2 = **0** (objeto de fondo)
+
+""")
+
+

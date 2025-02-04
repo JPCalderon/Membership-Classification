@@ -1,0 +1,2 @@
+i,dim_reduction,model_type,best_score,best_params
+2,umap_supervised,balanced_random_forest,0.7757990249416828,"{""model_type__sampling_strategy"": ""all"", ""model_type__replacement"": false, ""model_type__n_estimators"": 500, ""model_type__min_samples_split"": 10, ""model_type__min_samples_leaf"": 4, ""model_type__max_depth"": 30, ""model_type__bootstrap"": true, ""dim_reduction__spread"": 1.1, ""dim_reduction__n_neighbors"": 50, ""dim_reduction__n_components"": 10, ""dim_reduction__min_dist"": 0.9, ""dim_reduction__metric"": ""euclidean""}"

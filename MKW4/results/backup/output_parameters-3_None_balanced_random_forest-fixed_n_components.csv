@@ -1,0 +1,2 @@
+i,dim_reduction,model_type,best_score,best_params
+3,None,balanced_random_forest,0.6094160646714826,"{""model_type__sampling_strategy"": ""not majority"", ""model_type__replacement"": false, ""model_type__n_estimators"": 100, ""model_type__min_samples_split"": 10, ""model_type__min_samples_leaf"": 1, ""model_type__max_depth"": 30, ""model_type__bootstrap"": true}"
