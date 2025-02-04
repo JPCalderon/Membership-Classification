@@ -5,4 +5,4 @@ scikit-learn
 ligo.skymap
 pandas
 astropy
-sns
+seaborn
