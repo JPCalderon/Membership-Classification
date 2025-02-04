@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from astropy.visualization.wcsaxes import SphericalCircle, Quadrangle
+import seaborn as sns
 
 from astropy.coordinates import SkyCoord, ICRS, FK5
 from astropy import units as u
@@ -93,21 +94,13 @@ i = st.sidebar.selectbox("Select Features", i_options, index=0)
 dim_reduction = st.sidebar.selectbox("Select Dimensionality Reduction", dim_reduction_options)
 model_type = st.sidebar.selectbox("Select Model Type", model_type_options)
 
-# # Condición para fijar dim_reduction en None si "all" está seleccionado
-# if model_type == "assembled":
-#     dim_reduction = "None"  # Fijar en None
-# else:
-#     dim_reduction = st.sidebar.selectbox("Select Dimensionality Reduction", dim_reduction_options)
-
 st.sidebar.markdown("---")
 
 # Barras deslizantes para ajustar parámetros
-flag_member2_th = st.sidebar.slider("h for flag_member2", min_value=0.1, max_value=1.0, value=0.5, step=0.05)
+flag_member2_th = st.sidebar.slider("th for flag_member2", min_value=0.1, max_value=1.0, value=0.5, step=0.05)
 odds_th = st.sidebar.slider("Odds", min_value=0.1, max_value=1.0, value=0.9, step=0.05)
 R_FACTOR = st.sidebar.slider("R200 factor", min_value=0.1, max_value=10.0, value=14.0, step=0.1)
-
 prob1_th = st.sidebar.slider("prob1", min_value=0.05, max_value=1.0, value=0.5, step=0.05)
-
 selected_flag = st.sidebar.radio("Column for comparision", ["flag_member", "flag_member_photz1"])
 
 st.sidebar.markdown("---")
@@ -136,10 +129,8 @@ r = load_dynamic_data(i, dim_reduction, model_type)
 st.title("Galaxy Cluster Membership Analysis")
 st.write(f"### Features: {i} | Dimensionality Reduction: {dim_reduction} | Model: {model_type}")
 
-# Crear diseño de tres columnas para la primera fila
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 
-# 📌 Gráfico en Columna 1
 with col1:
     st.write("🖼️ Metrics evaluation (PNG Image)")
     figure_path = data_dir + f"figures/ROC_{i}-{dim_reduction}-{model_type}.png"
@@ -151,7 +142,6 @@ with col1:
     else:
         st.image(figure_path, caption=f"Figure for {dim_reduction} - {model_type}", use_container_width=True)
 
-# 📌 Gráfico en Columna 2
 with col2:
     st.write("🖼️ Dimnesionality reduction (PNG Image)")
     figure_path = data_dir + f"figures/DIM_{i}-{dim_reduction}-{model_type}.png"
@@ -162,7 +152,8 @@ with col2:
     else:
         st.image(figure_path, caption=f"Figure for {dim_reduction} - {model_type}", use_container_width=True)
 
-# 📌 Gráfico interactivo en Columna 3 (Custom Graph)
+col3, col4 = st.columns(2)
+
 with col3:
     st.write("📊 Comparision")
     # Definir las condiciones y asignar flag_member2
@@ -219,17 +210,44 @@ with col3:
     fig3.tight_layout()
     st.pyplot(fig3)
 
-# Crear segunda fila de gráficos
-col4, col5, col6 = st.columns(3)
-
-# 📌 Gráfico en Columna 4
 with col4:
+    st.write("📊 Comparision 2")
+
+    df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR]
+
+    # Filtrar solo los valores 0 y 1 en flag_member y flag_member2
+    filtered_r = df_plot[(df_plot[selected_flag].isin([0, 1])) & (df_plot['flag_member2'].isin([0, 1]))]
+
+    # Crear una tabla de contingencia
+    confusion_matrix_plot = pd.crosstab(filtered_r[selected_flag], filtered_r['flag_member2'], 
+                                        rownames=[selected_flag], colnames=['flag_member2'])        
+
+    confusion_matrix_normalized = confusion_matrix_plot.div(confusion_matrix_plot.sum(axis=1), axis=0)
+
+    # 🔹 Visualizar la matriz de confusión
+    fig4 = plt.figure(figsize=(4, 4))  
+    sns.heatmap(confusion_matrix_normalized, annot=True, fmt=".1%", cmap=plt.cm.Blues, cbar=False,
+                xticklabels=['Outlier (0)', 'Member (1)'], 
+                yticklabels=['Outlier (0)', 'Member (1)'])
+
+    # 🔹 Etiquetas de los ejes
+    plt.xlabel("flag_member2")
+    plt.ylabel(selected_flag)
+    plt.title(f"i = {i}, dim_reduction = {dim_reduction}, model_type = {model_type} | R200 = {R_FACTOR}", fontsize=10, y=1.01)
+
+    # 🔹 Mostrar la gráfica
+    plt.show()
+    st.pyplot(fig4)
+
+col5, col6 = st.columns(2)
+
+with col5:
     st.write("📊 CMD")
     cmap = plt.get_cmap("jet", 11)  # Alternativas: "viridis", "coolwarm", "pastel1"
 
-    fig4 = plt.figure(figsize=(20, 6))  
+    fig5 = plt.figure(figsize=(20, 6))  
     gs = GridSpec(1, 2, width_ratios=[1, 1]) 
-    ax0 = fig4.add_subplot(gs[0, 0])
+    ax0 = fig5.add_subplot(gs[0, 0])
 
     x = 'r_auto'; y = 'g_auto-r_auto'
     df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 >= @prob1_th")
@@ -242,61 +260,6 @@ with col4:
     ax0.scatter ( x, y, data = df_plot, s = size*0.4, color='gray', edgecolors = 'white', alpha = 0.3,
                  label = 'prob < %4.2f (%i)' % (prob1_th, len(df_plot)), vmin=0, vmax=1, zorder = 1 )   
     
-    if show_scatter_background:
-        df_plot = rr.query("label == 'background'")
-        ax0.scatter ( x, y, data = df_plot, s = size*0.5, alpha = 0.9, edgecolors = 'black', color = 'green', marker = '^', 
-                    linewidth = 1.2, label = 'background (%i)' % (len(df_plot)), zorder = 3 )  
-
-    if show_scatter_members:
-        df_plot = rr.query("label == 'members'")
-        ax0.scatter ( x, y, data = df_plot, s = size*0.5, alpha = 0.9, edgecolors = 'black', color = 'red', marker = 's', 
-                    linewidth = 1.2, label = 'members (%i)' % (len(df_plot)), zorder = 4 )  
-
-    # Ajustar las posiciones de los gráficos para dejar espacio para la barra de color
-    fig4.tight_layout(pad=2.0)
-    pos_ax2 = ax0.get_position()  # Posición del segundo gráfico
-
-    # Añadir barra de color (colorbar) con mismo alto que los gráficos
-    cbar_ax = fig4.add_axes([
-        pos_ax2.x1 + 0.03,  # Alinear a la derecha del segundo gráfico
-        pos_ax2.y0,         # Parte inferior alineada con el gráfico
-        0.02,               # Ancho de la barra de color
-        pos_ax2.height      # Altura igual a la del gráfico
-    ])
-    cbar = plt.colorbar(scatter2, cax=cbar_ax, orientation='vertical')
-    cbar.set_label('Probability (prob1)', labelpad=10)
-    cbar.minorticks_on() 
-
-    for a in [ ax0 ]:
-        handles, labels = a.get_legend_handles_labels()
-        custom_axes(a); a.set_ylim (-1, 2); a.set_xlim(x_min, x_max)
-        a.invert_xaxis(); a.set_xlabel ( "r [mag]" ); a.set_ylabel ( "(g-r) [mag]" )
-        for item in ([a.title, a.xaxis.label, a.yaxis.label] + a.get_xticklabels() + a.get_yticklabels()): item.set_fontsize(20)
-        lgd = a.legend ( handles, labels, fontsize = 10, framealpha = 1, loc = 'lower right', ncol = 1, borderaxespad = 1. )  
-    plt.tight_layout()
-    st.pyplot(fig4)
-
-# 📌 Gráfico en Columna 5
-with col5:
-    st.write("📊 REFF-MAG")
-
-    fig5 = plt.figure(figsize=(20, 6))  
-    gs = GridSpec(1, 2, width_ratios=[1, 1]) 
-
-    ax0 = fig5.add_subplot(gs[0, 0])
-
-    x = 'r_auto'; y = 'FLUX_RADIUS_50'
-    x_min = rr.query("label == 'candidates'").r_auto.min(); x_max = rr.query("label == 'candidates'").r_auto.max()
-    y_min = rr.query("label == 'candidates'").FLUX_RADIUS_50.min(); y_max = rr.query("label == 'candidates'").FLUX_RADIUS_50.max()
-    df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 >= @prob1_th")
-    scatter2 = ax0.scatter ( x, y, data = df_plot, s = size*0.7, c=df_plot.prob1, edgecolors = 'white', alpha = 0.9, 
-                            cmap=cmap, label = 'prob > %4.2f (%i)' % (prob1_th, len(df_plot)), vmin=0, vmax=1, zorder = 2 )   
-    xlim = ax0.get_xlim(); ylim = ax0.get_ylim()
-    
-    df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 < @prob1_th")
-    ax0.scatter ( x, y, data = df_plot, s = size*0.4, color='gray', edgecolors = 'white', alpha = 0.5,
-                label = 'prob < %4.2f (%i)' % (prob1_th, len(df_plot)), vmin=0, vmax=1, zorder = 1 )   
-
     if show_scatter_background:
         df_plot = rr.query("label == 'background'")
         ax0.scatter ( x, y, data = df_plot, s = size*0.5, alpha = 0.9, edgecolors = 'black', color = 'green', marker = '^', 
@@ -324,6 +287,60 @@ with col5:
 
     for a in [ ax0 ]:
         handles, labels = a.get_legend_handles_labels()
+        custom_axes(a); a.set_ylim (-1, 2); a.set_xlim(x_min, x_max)
+        a.invert_xaxis(); a.set_xlabel ( "r [mag]" ); a.set_ylabel ( "(g-r) [mag]" )
+        for item in ([a.title, a.xaxis.label, a.yaxis.label] + a.get_xticklabels() + a.get_yticklabels()): item.set_fontsize(20)
+        lgd = a.legend ( handles, labels, fontsize = 10, framealpha = 1, loc = 'lower right', ncol = 1, borderaxespad = 1. )  
+    plt.tight_layout()
+    st.pyplot(fig5)
+
+with col6:
+    st.write("📊 REFF-MAG")
+
+    fig6 = plt.figure(figsize=(20, 6))  
+    gs = GridSpec(1, 2, width_ratios=[1, 1]) 
+
+    ax0 = fig6.add_subplot(gs[0, 0])
+
+    x = 'r_auto'; y = 'FLUX_RADIUS_50'
+    x_min = rr.query("label == 'candidates'").r_auto.min(); x_max = rr.query("label == 'candidates'").r_auto.max()
+    y_min = rr.query("label == 'candidates'").FLUX_RADIUS_50.min(); y_max = rr.query("label == 'candidates'").FLUX_RADIUS_50.max()
+    df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 >= @prob1_th")
+    scatter2 = ax0.scatter ( x, y, data = df_plot, s = size*0.7, c=df_plot.prob1, edgecolors = 'white', alpha = 0.9, 
+                            cmap=cmap, label = 'prob > %4.2f (%i)' % (prob1_th, len(df_plot)), vmin=0, vmax=1, zorder = 2 )   
+    xlim = ax0.get_xlim(); ylim = ax0.get_ylim()
+    
+    df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 < @prob1_th")
+    ax0.scatter ( x, y, data = df_plot, s = size*0.4, color='gray', edgecolors = 'white', alpha = 0.5,
+                label = 'prob < %4.2f (%i)' % (prob1_th, len(df_plot)), vmin=0, vmax=1, zorder = 1 )   
+
+    if show_scatter_background:
+        df_plot = rr.query("label == 'background'")
+        ax0.scatter ( x, y, data = df_plot, s = size*0.5, alpha = 0.9, edgecolors = 'black', color = 'green', marker = '^', 
+                    linewidth = 1.2, label = 'background (%i)' % (len(df_plot)), zorder = 3 )  
+
+    if show_scatter_members:
+        df_plot = rr.query("label == 'members'")
+        ax0.scatter ( x, y, data = df_plot, s = size*0.5, alpha = 0.9, edgecolors = 'black', color = 'red', marker = 's', 
+                    linewidth = 1.2, label = 'members (%i)' % (len(df_plot)), zorder = 4 )  
+
+    # Ajustar las posiciones de los gráficos para dejar espacio para la barra de color
+    fig6.tight_layout(pad=2.0)
+    pos_ax2 = ax0.get_position()  # Posición del segundo gráfico
+
+    # Añadir barra de color (colorbar) con mismo alto que los gráficos
+    cbar_ax = fig6.add_axes([
+        pos_ax2.x1 + 0.03,  # Alinear a la derecha del segundo gráfico
+        pos_ax2.y0,         # Parte inferior alineada con el gráfico
+        0.02,               # Ancho de la barra de color
+        pos_ax2.height      # Altura igual a la del gráfico
+    ])
+    cbar = plt.colorbar(scatter2, cax=cbar_ax, orientation='vertical')
+    cbar.set_label('Probability (prob1)', labelpad=10)
+    cbar.minorticks_on() 
+
+    for a in [ ax0 ]:
+        handles, labels = a.get_legend_handles_labels()
         custom_axes ( a ); a.invert_xaxis(); a.set_yscale('log')
         a.set_yscale('log'); a.set_ylim(y_min, y_max); a.set_xlim(x_min, x_max); a.invert_xaxis()
         a.set_xlabel("r [mag]"); a.set_ylabel("R$_{eff}$ [kpc]")
@@ -332,66 +349,65 @@ with col5:
 
     plt.tight_layout()
     plt.show()
-    st.pyplot(fig5)
-
-# 📌 Gráfico en Columna 6
-with col6:
-    st.write("📊 RA-DEC")
-
-    fig6 = plt.figure ( figsize = (15, 10) )
-    center = SkyCoord ( ra=180.9884, dec=+1.8883,  frame = FK5, unit = u.deg )
-
-    R200 = 3.566/5
-    ax0 = plt.axes ( projection = 'astro zoom', center = center, radius = 9*u.deg )
-
-    x = 'ra'; y = 'dec'
-    df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 >= @prob1_th").dropna(subset=['prob1'])
-    scatter2 = ax0.scatter ( x, y, data = df_plot, s = size*1.5, c=df_plot.prob1, edgecolors = 'white', alpha = 0.9,  cmap=cmap,
-                linewidth = 0.4, transform = ax0.get_transform('world'), label = 'prob > %4.2f (%s)' % (prob1_th, len(df_plot)),  vmin=0, vmax=1, zorder = 2 )   
-    xlim = ax0.get_xlim(); ylim = ax0.get_ylim()
-
-    df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 < @prob1_th").dropna(subset=['prob1'])
-    ax0.scatter ( x, y, data = df_plot, s = size*0.4, color='gray', edgecolors = 'white', alpha = 0.5,
-                transform = ax0.get_transform('world'), label = 'prob < %4.2f (%i)' % (prob1_th, len(df_plot)), vmin=0, vmax=1, zorder = 1 )   
-    
-    for R_FACTOR in [ 1, 5 ]:
-        R_200 = SphericalCircle ( (center.ra.deg * u.degree , center.dec.deg * u.degree ), R_FACTOR * R200 * u.degree, 
-                                edgecolor = 'black', facecolor = 'none', linewidth = 3.0, linestyle = '--', 
-                                transform = ax0.get_transform('world'), zorder = 2 )
-        ax0.add_patch(R_200) 
-
-    if show_scatter_background:
-        df_plot = rr.query("label == 'background'")#.dropna(subset=['prob1'])
-        ax0.scatter ( x, y, data = df_plot, s = size*0.5, alpha = 0.9, edgecolors = 'black', color = 'green', marker = '^', 
-                    linewidth = 1.2, transform = ax0.get_transform('world'), label = 'background (%i)' % (len(df_plot)), zorder = 3 )  
-
-    if show_scatter_members:
-        df_plot = rr.query("label == 'members'")#.dropna(subset=['prob1'])
-        ax0.scatter ( x, y, data = df_plot, s = size*0.5, alpha = 0.9, edgecolors = 'black', color = 'red', marker = 's', 
-                    linewidth = 1.2, transform = ax0.get_transform('world'), label = 'members (%i)' % (len(df_plot)), zorder = 4 )  
-
-    # Ajustar las posiciones de los gráficos para dejar espacio para la barra de color
-    fig6.tight_layout(pad=2.0)
-    pos_ax2 = ax0.get_position()  # Posición del segundo gráfico
-
-    # Añadir barra de color (colorbar) con mismo alto que los gráficos
-    cbar_ax = fig6.add_axes([
-        pos_ax2.x1 + 0.17,  # Alinear a la derecha del segundo gráfico
-        pos_ax2.y0,         # Parte inferior alineada con el gráfico
-        0.02,               # Ancho de la barra de color
-        pos_ax2.height      # Altura igual a la del gráfico
-    ])
-
-    cbar = plt.colorbar(scatter2, cax=cbar_ax, orientation='vertical')
-    cbar.set_label('Probability (prob1)', labelpad=10)
-    cbar.minorticks_on() 
-
-    ax0.set_xlim ( 60, 730 ); ax0.set_ylim ( 150, 550 )
-    ax0.grid()
-    ax0.set_xlabel ( "Right Ascension [J2000]" ); ax0.set_ylabel ( "Declination [J2000]" )
-    leg = plt.legend ( loc = 'lower right' )
-    plt.show()
     st.pyplot(fig6)
+
+st.write("📊 RA-DEC")
+
+fig7 = plt.figure ( figsize = (15, 10) )
+center = SkyCoord ( ra=180.9884, dec=+1.8883,  frame = FK5, unit = u.deg )
+
+R200 = 3.566/5
+ax0 = plt.axes ( projection = 'astro zoom', center = center, radius = 9*u.deg )
+
+x = 'ra'; y = 'dec'
+df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 >= @prob1_th").dropna(subset=['prob1'])
+scatter2 = ax0.scatter ( x, y, data = df_plot, s = size*1.5, c=df_plot.prob1, edgecolors = 'white', alpha = 0.9,  cmap=cmap,
+            linewidth = 0.4, transform = ax0.get_transform('world'), label = 'prob > %4.2f (%s)' % (prob1_th, len(df_plot)),  vmin=0, vmax=1, zorder = 2 )   
+xlim = ax0.get_xlim(); ylim = ax0.get_ylim()
+
+df_plot = rr[rr["D_CENTER/R200_deg"] < R_FACTOR].query("label == 'candidates' & prob1 < @prob1_th").dropna(subset=['prob1'])
+ax0.scatter ( x, y, data = df_plot, s = size*0.4, color='gray', edgecolors = 'white', alpha = 0.5,
+            transform = ax0.get_transform('world'), label = 'prob < %4.2f (%i)' % (prob1_th, len(df_plot)), vmin=0, vmax=1, zorder = 1 )   
+
+for R_FACTOR in [ 1, 5 ]:
+    R_200 = SphericalCircle ( (center.ra.deg * u.degree , center.dec.deg * u.degree ), R_FACTOR * R200 * u.degree, 
+                            edgecolor = 'black', facecolor = 'none', linewidth = 3.0, linestyle = '--', 
+                            transform = ax0.get_transform('world'), zorder = 2 )
+    ax0.add_patch(R_200) 
+
+if show_scatter_background:
+    df_plot = rr.query("label == 'background'")#.dropna(subset=['prob1'])
+    ax0.scatter ( x, y, data = df_plot, s = size*0.5, alpha = 0.9, edgecolors = 'black', color = 'green', marker = '^', 
+                linewidth = 1.2, transform = ax0.get_transform('world'), label = 'background (%i)' % (len(df_plot)), zorder = 3 )  
+
+if show_scatter_members:
+    df_plot = rr.query("label == 'members'")#.dropna(subset=['prob1'])
+    ax0.scatter ( x, y, data = df_plot, s = size*0.5, alpha = 0.9, edgecolors = 'black', color = 'red', marker = 's', 
+                linewidth = 1.2, transform = ax0.get_transform('world'), label = 'members (%i)' % (len(df_plot)), zorder = 4 )  
+
+# Ajustar las posiciones de los gráficos para dejar espacio para la barra de color
+fig7.tight_layout(pad=2.0)
+pos_ax2 = ax0.get_position()  # Posición del segundo gráfico
+
+# Añadir barra de color (colorbar) con mismo alto que los gráficos
+cbar_ax = fig7.add_axes([
+    pos_ax2.x1 + 0.17,  # Alinear a la derecha del segundo gráfico
+    pos_ax2.y0,         # Parte inferior alineada con el gráfico
+    0.02,               # Ancho de la barra de color
+    pos_ax2.height      # Altura igual a la del gráfico
+])
+
+cbar = plt.colorbar(scatter2, cax=cbar_ax, orientation='vertical')
+cbar.set_label('Probability (prob1)', labelpad=10)
+cbar.minorticks_on() 
+
+ax0.set_xlim ( 60, 730 ); ax0.set_ylim ( 150, 550 )
+ax0.grid()
+ax0.set_xlabel ( "Right Ascension [J2000]" ); ax0.set_ylabel ( "Declination [J2000]" )
+leg = plt.legend ( loc = 'lower right' )
+plt.show()
+st.pyplot(fig7)
+
 
 st.markdown("---")
 
